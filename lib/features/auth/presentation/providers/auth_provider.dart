@@ -5,7 +5,9 @@ import '../../../../core/storage/secure_storage_service.dart';
 import '../../data/repositories/auth_repository.dart';
 
 final secureStorageProvider = Provider((ref) => SecureStorageService());
-final dioClientProvider = Provider((ref) => DioClient());
+
+// 1. DÜZELTME: ref parametresi eklendi
+final dioClientProvider = Provider((ref) => DioClient(ref));
 
 final authRepositoryProvider = Provider((ref) {
   return AuthRepository(
@@ -15,13 +17,17 @@ final authRepositoryProvider = Provider((ref) {
 });
 
 final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<void>>((ref) {
-  return AuthNotifier(ref.read(authRepositoryProvider));
+  return AuthNotifier(
+    ref.read(authRepositoryProvider),
+    ref.read(secureStorageProvider),
+  );
 });
 
 class AuthNotifier extends StateNotifier<AsyncValue<void>> {
   final AuthRepository _repository;
+  final SecureStorageService _storage;
 
-  AuthNotifier(this._repository) : super(const AsyncData(null));
+  AuthNotifier(this._repository, this._storage) : super(const AsyncData(null));
 
   Future<bool> login(String email, String password) async {
     state = const AsyncLoading();
@@ -56,6 +62,18 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
     } catch (e, st) {
       state = AsyncError(e.toString().replaceAll('Exception: ', ''), st);
       return false;
+    }
+  }
+
+  // 2. DÜZELTME: dashboard_page.dart için logout metodu eklendi
+  Future<void> logout() async {
+    state = const AsyncLoading();
+    try {
+      await _storage.deleteToken();
+      await _storage.deleteRefreshToken();
+      state = const AsyncData(null);
+    } catch (e, st) {
+      state = AsyncError(e.toString().replaceAll('Exception: ', ''), st);
     }
   }
 }
